@@ -1,0 +1,23 @@
+<div class="card mb-3">
+    <div class="row g-0">
+        {% if article.image_url %}
+        <div class="col-md-2">
+            <img src="{{ article.image_url }}" class="img-fluid rounded-start" alt="">
+        </div>
+        {% endif %}
+        <div class="col">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.title }}</a>
+                </h5>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    {{ article.source_name }}
+                    {%- if article.author %} &middot; {{ article.author }}{% endif -%}
+                    {%- if article.published_at %} &middot; {{ article.published_at.strftime('%Y-%m-%d') }}{% endif %}
+                    <span class="badge bg-secondary">{{ article.provider }}</span>
+                </h6>
+                {% if article.description %}<p class="card-text">{{ article.description }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>

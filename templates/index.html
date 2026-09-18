@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="get" action="/" class="row g-3 mb-4">
+    <div class="col-md-4">
+        <label class="form-label">Keyword</label>
+        <input type="text" name="q" class="form-control" value="{{ form.q }}" placeholder="e.g. BNY Mellon">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">From date</label>
+        <input type="date" name="from_date" class="form-control" value="{{ form.from_date }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">To date</label>
+        <input type="date" name="to_date" class="form-control" value="{{ form.to_date }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Source</label>
+        <input type="text" name="source" class="form-control" value="{{ form.source }}" placeholder="e.g. BBC">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Category</label>
+        <select name="category" class="form-select">
+            <option value="">Any</option>
+            {% for c in categories %}
+            <option value="{{ c }}" {% if form.category == c %}selected{% endif %}>{{ c|title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </div>
+</form>
+
+{% if validation_error %}
+<div class="alert alert-danger">{{ validation_error }}</div>
+{% endif %}
+
+{% for error in errors %}
+<div class="alert alert-warning">{{ error.provider }}: {{ error.message }}</div>
+{% endfor %}
+
+{% if form.category %}
+<div class="alert alert-info py-2">
+    Category filtering uses NewsAPI's top-headlines (date filters don't apply to NewsAPI in this mode) and the Guardian's section.
+</div>
+{% endif %}
+
+{% if articles is not none %}
+    {% if articles|length == 0 %}
+    <p class="text-muted">No articles found.</p>
+    {% else %}
+        {% for article in articles %}
+            {% include "_article_card.html" %}
+        {% endfor %}
+    {% endif %}
+{% endif %}
+{% endblock %}
