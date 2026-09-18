@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
+{% if recent_searches %}
+<div class="mb-3">
+    <span class="text-muted small">Recent searches:</span>
+    {% for s in recent_searches %}
+    <a class="btn btn-sm btn-outline-secondary"
+       href="/?q={{ s.query | urlencode }}&from_date={{ s.from_date or '' }}&to_date={{ s.to_date or '' }}&source={{ (s.source or '') | urlencode }}&category={{ s.category or '' }}">{{ s.query }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 <form method="get" action="/" class="row g-3 mb-4">
     <div class="col-md-4">
         <label class="form-label">Keyword</label>

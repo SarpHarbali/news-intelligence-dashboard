@@ -13,10 +13,27 @@
                 <h6 class="card-subtitle mb-2 text-muted">
                     {{ article.source_name }}
                     {%- if article.author %} &middot; {{ article.author }}{% endif -%}
-                    {%- if article.published_at %} &middot; {{ article.published_at.strftime('%Y-%m-%d') }}{% endif %}
+                    {%- if article.published_at %} &middot; {{ article.published_at | date }}{% endif %}
                     <span class="badge bg-secondary">{{ article.provider }}</span>
                 </h6>
                 {% if article.description %}<p class="card-text">{{ article.description }}</p>{% endif %}
+                {% if article.id is defined and article.id %}
+                <form method="post" action="/bookmarks/{{ article.id }}/delete">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                </form>
+                {% else %}
+                <form method="post" action="/bookmarks">
+                    <input type="hidden" name="title" value="{{ article.title }}">
+                    <input type="hidden" name="url" value="{{ article.url }}">
+                    <input type="hidden" name="source_name" value="{{ article.source_name }}">
+                    <input type="hidden" name="author" value="{{ article.author or '' }}">
+                    <input type="hidden" name="published_at" value="{{ article.published_at | date }}">
+                    <input type="hidden" name="description" value="{{ article.description or '' }}">
+                    <input type="hidden" name="image_url" value="{{ article.image_url or '' }}">
+                    <input type="hidden" name="provider" value="{{ article.provider }}">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Bookmark</button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>

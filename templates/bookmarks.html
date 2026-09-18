@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="mb-3">Bookmarked Articles</h4>
+{% if bookmarks|length == 0 %}
+<p class="text-muted">No bookmarks yet.</p>
+{% else %}
+    {% for article in bookmarks %}
+        {% include "_article_card.html" %}
+    {% endfor %}
+{% endif %}
+{% endblock %}

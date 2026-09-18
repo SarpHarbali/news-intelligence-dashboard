@@ -1,11 +1,33 @@
-from fastapi import FastAPI, Request
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+import db
 from models import NEWSAPI_CATEGORIES, SearchParams
 from search import run_search
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    db.init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
+
+
+def _format_date(value):
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value[:10]
+    return value.strftime("%Y-%m-%d")
+
+
+templates.env.filters["date"] = _format_date
 
 
 @app.get("/")
@@ -23,6 +45,7 @@ async def index(
         "articles": None,
         "errors": [],
         "validation_error": None,
+        "recent_searches": db.get_recent_searches(limit=10),
     }
 
     if q is not None:
@@ -42,5 +65,34 @@ async def index(
             result = await run_search(params)
             context["articles"] = result.articles
             context["errors"] = result.errors
+            db.save_recent_search(params.query, params.from_date, params.to_date, params.source, params.category)
+            context["recent_searches"] = db.get_recent_searches(limit=10)
 
     return templates.TemplateResponse(request, "index.html", context)
+
+
+@app.get("/bookmarks")
+async def bookmarks_page(request: Request):
+    return templates.TemplateResponse(request, "bookmarks.html", {"bookmarks": db.list_bookmarks()})
+
+
+@app.post("/bookmarks")
+async def create_bookmark(
+    request: Request,
+    title: str = Form(...),
+    url: str = Form(...),
+    source_name: str = Form(...),
+    provider: str = Form(...),
+    author: str = Form(""),
+    published_at: str = Form(""),
+    description: str = Form(""),
+    image_url: str = Form(""),
+):
+    db.add_bookmark(title, url, source_name, author or None, published_at or None, description or None, image_url or None, provider)
+    return RedirectResponse(url=request.headers.get("referer") or "/", status_code=303)
+
+
+@app.post("/bookmarks/{bookmark_id}/delete")
+async def delete_bookmark(bookmark_id: int, request: Request):
+    db.remove_bookmark(bookmark_id)
+    return RedirectResponse(url=request.headers.get("referer") or "/bookmarks", status_code=303)
