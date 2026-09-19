@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import httpx
 import pytest
 
@@ -32,13 +34,16 @@ async def test_newsapi_everything_search_normalizes_articles(monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
 
+    recent_from = (datetime.now(timezone.utc) - timedelta(days=5)).date().isoformat()
+    recent_to = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+
     adapter = NewsAPIAdapter()
-    params = SearchParams(query="bny", from_date="2024-01-01", to_date="2024-01-02")
+    params = SearchParams(query="bny", from_date=recent_from, to_date=recent_to)
     articles = await adapter.search(params)
 
     assert captured["url"].endswith("/everything")
-    assert captured["params"]["from"] == "2024-01-01"
-    assert captured["params"]["to"] == "2024-01-02"
+    assert captured["params"]["from"] == recent_from
+    assert captured["params"]["to"] == recent_to
     assert captured["headers"]["X-Api-Key"] == "test-news-key"
     assert len(articles) == 1
     article = articles[0]
@@ -46,6 +51,45 @@ async def test_newsapi_everything_search_normalizes_articles(monkeypatch):
     assert article.source_name == "Example"
     assert article.provider == "newsapi"
     assert article.published_at is not None
+
+
+@pytest.mark.asyncio
+async def test_newsapi_clamps_from_date_beyond_plan_history(monkeypatch):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {"articles": []})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NewsAPIAdapter()
+    params = SearchParams(query="bny", from_date="2020-01-01")
+    await adapter.search(params)
+
+    expected_cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=NewsAPIAdapter.history_limit_days)
+    ).date().isoformat()
+    assert captured["params"]["from"] == expected_cutoff
+
+
+@pytest.mark.asyncio
+async def test_newsapi_skips_request_when_range_entirely_out_of_reach(monkeypatch):
+    called = False
+
+    async def fake_get(self, url, **kwargs):
+        nonlocal called
+        called = True
+        return make_response(200, {"articles": []})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NewsAPIAdapter()
+    params = SearchParams(query="bny", from_date="2020-01-01", to_date="2020-02-01")
+    articles = await adapter.search(params)
+
+    assert articles == []
+    assert called is False
 
 
 @pytest.mark.asyncio

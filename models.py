@@ -26,7 +26,8 @@ class SearchParams(BaseModel):
     to_date: str | None = None
     source: str | None = None
     category: str | None = None
-    page_size: int = 20
+    page_size: int = 50
+    page: int = 1
 
 
 class ProviderError(Exception):
@@ -40,3 +41,4 @@ class ProviderError(Exception):
 class SearchResult:
     articles: list[Article]
     errors: list[ProviderError]
+    has_more: bool = False

@@ -17,6 +17,8 @@ class GuardianAdapter(NewsProvider):
             "q": params.query,
             "api-key": settings.guardian_api_key,
             "page-size": min(params.page_size, 50),
+            "page": params.page,
+            "order-by": "relevance",
             "show-fields": "trailText,byline,thumbnail",
         }
         if params.from_date:

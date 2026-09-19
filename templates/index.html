@@ -54,6 +54,14 @@
 </div>
 {% endif %}
 
+{% if newsapi_date_warning %}
+<div class="alert alert-info py-2">{{ newsapi_date_warning }}</div>
+{% endif %}
+
+{% if newsapi_cap_warning %}
+<div class="alert alert-info py-2">{{ newsapi_cap_warning }}</div>
+{% endif %}
+
 {% if articles is not none %}
     {% if articles|length == 0 %}
         {% if errors|length > 0 %}
@@ -65,6 +73,12 @@
         {% for article in articles %}
             {% include "_article_card.html" %}
         {% endfor %}
+        {% if has_more %}
+        <div class="text-center mb-4">
+            <a class="btn btn-outline-primary"
+               href="/?q={{ form.q | urlencode }}&from_date={{ form.from_date }}&to_date={{ form.to_date }}&source={{ form.source | urlencode }}&category={{ form.category }}&page={{ page + 1 }}">Load more</a>
+        </div>
+        {% endif %}
     {% endif %}
 {% endif %}
 {% endblock %}

@@ -86,5 +86,5 @@ def list_bookmarks():
 
 def get_bookmarked_urls():
     with _connect() as conn:
-        rows = conn.execute("SELECT url FROM bookmarks").fetchall()
-        return {row["url"] for row in rows}
+        rows = conn.execute("SELECT id, url FROM bookmarks").fetchall()
+        return {row["url"]: row["id"] for row in rows}

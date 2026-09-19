@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 import db
+from adapters.newsapi import NewsAPIAdapter
 from models import NEWSAPI_CATEGORIES, PROVIDER_NAMES, SearchParams
 from search import run_search
 
@@ -39,13 +41,19 @@ async def index(
     to_date: str = "",
     source: str = "",
     category: str = "",
+    page: int = 1,
 ):
+    page = max(page, 1)
     context = {
         "categories": NEWSAPI_CATEGORIES,
         "form": {"q": q or "", "from_date": from_date, "to_date": to_date, "source": source, "category": category},
         "articles": None,
         "errors": [],
         "validation_error": None,
+        "newsapi_date_warning": None,
+        "newsapi_cap_warning": None,
+        "page": page,
+        "has_more": False,
         "recent_searches": db.get_recent_searches(limit=10),
         "bookmarked_urls": db.get_bookmarked_urls(),
     }
@@ -63,10 +71,28 @@ async def index(
                 to_date=to_date or None,
                 source=source or None,
                 category=category or None,
+                page=page,
             )
+
+            if params.from_date and not params.category:
+                history_limit_days = NewsAPIAdapter.history_limit_days
+                cutoff = (datetime.now(timezone.utc) - timedelta(days=history_limit_days)).date().isoformat()
+                if params.from_date < cutoff:
+                    context["newsapi_date_warning"] = (
+                        f"NewsAPI's plan only covers the last {history_limit_days} days, so results "
+                        f"before {cutoff} will only include Guardian articles."
+                    )
+
+            if params.page * params.page_size > NewsAPIAdapter.max_results:
+                context["newsapi_cap_warning"] = (
+                    f"NewsAPI's plan caps total results at {NewsAPIAdapter.max_results} articles per search, "
+                    "so further pages will only include Guardian articles."
+                )
+
             result = await run_search(params)
             context["articles"] = result.articles
             context["errors"] = result.errors
+            context["has_more"] = result.has_more
             db.save_recent_search(params.query, params.from_date, params.to_date, params.source, params.category)
             context["recent_searches"] = db.get_recent_searches(limit=10)
 

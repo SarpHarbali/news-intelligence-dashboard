@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import httpx
 
@@ -11,18 +11,23 @@ BASE_URL = "https://newsapi.org/v2"
 
 class NewsAPIAdapter(NewsProvider):
     name = "newsapi"
+    max_results = 100  # Free plan cap on total results per query
+    history_limit_days = 30  # Free plan cap on history limit
 
     async def search(self, params: SearchParams) -> list[Article]:
         headers = {"X-Api-Key": settings.news_api_key}
         # top-headlines is the only NewsAPI endpoint that supports category, but it doesn't accept date-range params, so date filters are dropped when it's used.
         if params.category:
             url = f"{BASE_URL}/top-headlines"
-            query = {"q": params.query, "category": params.category, "pageSize": params.page_size}
+            query = {"q": params.query, "category": params.category, "pageSize": params.page_size, "page": params.page}
         else:
             url = f"{BASE_URL}/everything"
-            query = {"q": params.query, "pageSize": params.page_size}
+            query = {"q": params.query, "pageSize": params.page_size, "page": params.page}
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=self.history_limit_days)).date().isoformat()
+            if params.to_date and params.to_date < cutoff:
+                return []
             if params.from_date:
-                query["from"] = params.from_date
+                query["from"] = max(params.from_date, cutoff)
             if params.to_date:
                 query["to"] = params.to_date
 
