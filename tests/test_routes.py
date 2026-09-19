@@ -29,7 +29,7 @@ def test_search_renders_articles_and_errors(client, monkeypatch):
 
     assert response.status_code == 200
     assert "Hello World" in response.text
-    assert "guardian: service unavailable" in response.text
+    assert "Guardian: service unavailable" in response.text
 
 
 def test_empty_query_shows_validation_error(client):

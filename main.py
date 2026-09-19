@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 import db
-from models import NEWSAPI_CATEGORIES, SearchParams
+from models import NEWSAPI_CATEGORIES, PROVIDER_NAMES, SearchParams
 from search import run_search
 
 
@@ -28,6 +28,7 @@ def _format_date(value):
 
 
 templates.env.filters["date"] = _format_date
+templates.env.filters["provider_name"] = lambda value: PROVIDER_NAMES.get(value, value)
 
 
 @app.get("/")

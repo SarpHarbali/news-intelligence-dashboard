@@ -2,7 +2,7 @@
     <div class="row g-0">
         {% if article.image_url %}
         <div class="col-md-2">
-            <img src="{{ article.image_url }}" class="img-fluid rounded-start" alt="">
+            <img src="{{ article.image_url }}" class="article-thumb rounded-start" alt="">
         </div>
         {% endif %}
         <div class="col">
@@ -14,7 +14,7 @@
                     {{ article.source_name }}
                     {%- if article.author %} &middot; {{ article.author }}{% endif -%}
                     {%- if article.published_at %} &middot; {{ article.published_at | date }}{% endif %}
-                    <span class="badge bg-secondary">{{ article.provider }}</span>
+                    <span class="badge bg-secondary">{{ article.provider | provider_name }}</span>
                 </h6>
                 {% if article.description %}<p class="card-text">{{ article.description }}</p>{% endif %}
                 {% if article.id is defined and article.id %}

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 NEWSAPI_CATEGORIES = ("business", "entertainment", "general", "health", "science", "sports", "technology")
+PROVIDER_NAMES = {"newsapi": "NewsAPI", "guardian": "Guardian"}
 
 
 class Article(BaseModel):

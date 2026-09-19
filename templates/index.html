@@ -45,7 +45,7 @@
 {% endif %}
 
 {% for error in errors %}
-<div class="alert alert-warning">{{ error.provider }}: {{ error.message }}</div>
+<div class="alert alert-warning">{{ error.provider | provider_name }}: {{ error.message }}</div>
 {% endfor %}
 
 {% if form.category %}
@@ -56,7 +56,11 @@
 
 {% if articles is not none %}
     {% if articles|length == 0 %}
-    <p class="text-muted">No articles found.</p>
+        {% if errors|length > 0 %}
+        <p class="text-muted">No articles could be retrieved because of the provider errors above.</p>
+        {% else %}
+        <p class="text-muted">No articles found for your search criteria.</p>
+        {% endif %}
     {% else %}
         {% for article in articles %}
             {% include "_article_card.html" %}
