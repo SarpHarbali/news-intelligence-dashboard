@@ -21,6 +21,15 @@ def test_save_and_get_recent_searches():
     assert recents[1]["source"] == "bbc"
 
 
+def test_save_recent_search_skips_consecutive_duplicate():
+    db.save_recent_search("bny", "2024-01-01", "2024-01-02", "bbc", "business")
+    db.save_recent_search("bny", "2024-01-01", "2024-01-02", "bbc", "business")
+
+    recents = db.get_recent_searches(limit=10)
+
+    assert len(recents) == 1
+
+
 def test_recent_searches_respects_limit():
     for i in range(5):
         db.save_recent_search(f"q{i}", None, None, None, None)

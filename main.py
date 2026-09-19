@@ -47,6 +47,7 @@ async def index(
         "errors": [],
         "validation_error": None,
         "recent_searches": db.get_recent_searches(limit=10),
+        "bookmarked_urls": db.get_bookmarked_urls(),
     }
 
     if q is not None:

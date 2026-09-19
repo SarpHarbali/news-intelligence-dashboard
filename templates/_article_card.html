@@ -21,6 +21,8 @@
                 <form method="post" action="/bookmarks/{{ article.id }}/delete">
                     <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                 </form>
+                {% elif article.url in bookmarked_urls %}
+                <button type="button" class="btn btn-sm btn-success" disabled>Bookmarked</button>
                 {% else %}
                 <form method="post" action="/bookmarks">
                     <input type="hidden" name="title" value="{{ article.title }}">

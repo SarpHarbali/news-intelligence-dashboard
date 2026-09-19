@@ -46,6 +46,11 @@ def init_db():
 
 def save_recent_search(query, from_date, to_date, source, category):
     with _connect() as conn:
+        last = conn.execute(
+            "SELECT query, from_date, to_date, source, category FROM recent_searches ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if last and tuple(last) == (query, from_date, to_date, source, category):
+            return
         conn.execute(
             "INSERT INTO recent_searches (query, from_date, to_date, source, category) VALUES (?, ?, ?, ?, ?)",
             (query, from_date, to_date, source, category),
@@ -77,3 +82,9 @@ def list_bookmarks():
     with _connect() as conn:
         rows = conn.execute("SELECT * FROM bookmarks ORDER BY id DESC").fetchall()
         return [dict(row) for row in rows]
+
+
+def get_bookmarked_urls():
+    with _connect() as conn:
+        rows = conn.execute("SELECT url FROM bookmarks").fetchall()
+        return {row["url"] for row in rows}
