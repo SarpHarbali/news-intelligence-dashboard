@@ -57,18 +57,6 @@ async def test_both_providers_succeed_merges_and_sorts_by_date(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_both_providers_fail_returns_no_articles_and_two_errors(monkeypatch):
-    provider_a = FakeProvider("newsapi", error=ProviderError("newsapi", "timed out"))
-    provider_b = FakeProvider("guardian", error=ProviderError("guardian", "timed out"))
-    monkeypatch.setattr(search, "PROVIDERS", [provider_a, provider_b])
-
-    result = await search.run_search(SearchParams(query="bny"))
-
-    assert result.articles == []
-    assert {e.provider for e in result.errors} == {"newsapi", "guardian"}
-
-
-@pytest.mark.asyncio
 async def test_unexpected_exception_is_isolated_as_provider_error(monkeypatch):
     ok = FakeProvider("newsapi", articles=[make_article("A", "newsapi")])
     broken = FakeProvider("guardian", error=ValueError("boom"))

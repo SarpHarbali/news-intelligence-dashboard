@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 NEWSAPI_CATEGORIES = ("business", "entertainment", "general", "health", "science", "sports", "technology")
-PROVIDER_NAMES = {"newsapi": "NewsAPI", "guardian": "Guardian"}
+PROVIDER_NAMES = {"newsapi": "NewsAPI", "guardian": "Guardian", "nyt": "The New York Times"}
 
 
 class Article(BaseModel):
@@ -17,7 +17,7 @@ class Article(BaseModel):
     published_at: datetime | None = None
     image_url: str | None = None
     section: str | None = None
-    provider: Literal["newsapi", "guardian"]
+    provider: Literal["newsapi", "guardian", "nyt"]
 
 
 class SearchParams(BaseModel):

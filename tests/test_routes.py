@@ -21,7 +21,10 @@ def test_search_renders_articles_and_errors(client, monkeypatch):
             articles=[
                 Article(title="Hello World", url="https://example.com/a", source_name="Example", provider="newsapi")
             ],
-            errors=[ProviderError("guardian", "service unavailable")],
+            errors=[
+                ProviderError("guardian", "service unavailable"),
+                ProviderError("nyt", "rate limit reached (max 5 requests per minute)"),
+            ],
         )
 
     monkeypatch.setattr(main, "run_search", fake_run_search)
@@ -31,6 +34,19 @@ def test_search_renders_articles_and_errors(client, monkeypatch):
     assert response.status_code == 200
     assert "Hello World" in response.text
     assert "Guardian: service unavailable" in response.text
+    assert "The New York Times: rate limit reached (max 5 requests per minute)" in response.text
+
+
+def test_no_results_shows_empty_state(client, monkeypatch):
+    async def fake_run_search(params):
+        return SearchResult(articles=[], errors=[])
+
+    monkeypatch.setattr(main, "run_search", fake_run_search)
+
+    response = client.get("/", params={"q": "bny"})
+
+    assert response.status_code == 200
+    assert "No articles found for your search criteria." in response.text
 
 
 def test_empty_query_shows_validation_error(client):

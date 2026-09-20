@@ -8,9 +8,6 @@ from models import Article, ProviderError, SearchParams
 
 BASE_URL = "https://content.guardianapis.com/search"
 
-# NewsAPI's category vocabulary doesn't match Guardian section ids 1:1 (e.g. NewsAPI's
-# "sports" is "sport" here, and "entertainment" has no single equivalent) — remap the ones
-# that would otherwise silently return zero results.
 CATEGORY_TO_SECTION = {
     "sports": "sport",
     "entertainment": "culture|film|music|stage",

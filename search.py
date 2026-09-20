@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 
 from adapters.guardian import GuardianAdapter
 from adapters.newsapi import NewsAPIAdapter
+from adapters.nyt import NYTAdapter
 from models import ProviderError, SearchParams, SearchResult
 
-PROVIDERS = [NewsAPIAdapter(), GuardianAdapter()]
+PROVIDERS = [NewsAPIAdapter(), GuardianAdapter(), NYTAdapter()]
 
 
 async def _fetch_page(provider, params: SearchParams, page: int):

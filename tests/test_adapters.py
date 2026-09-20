@@ -5,6 +5,7 @@ import pytest
 
 from adapters.guardian import GuardianAdapter
 from adapters.newsapi import NewsAPIAdapter
+from adapters.nyt import NYTAdapter
 from models import ProviderError, SearchParams
 
 
@@ -216,5 +217,169 @@ async def test_guardian_timeout_raises_provider_error(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
 
     adapter = GuardianAdapter()
+    with pytest.raises(ProviderError):
+        await adapter.search(SearchParams(query="bny"))
+
+
+@pytest.mark.asyncio
+async def test_nyt_search_normalizes_articles(monkeypatch):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {
+            "response": {
+                "docs": [{
+                    "web_url": "https://nytimes.com/a",
+                    "snippet": "Summary",
+                    "headline": {"main": "NYT Title"},
+                    "byline": {"original": "By Jane Doe"},
+                    "pub_date": "2024-01-01T12:00:00+0000",
+                    "section_name": "Business",
+                }]
+            }
+        })
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    articles = await adapter.search(SearchParams(query="bny"))
+
+    assert captured["params"]["api-key"] == "test-nyt-key"
+    assert len(articles) == 1
+    article = articles[0]
+    assert article.title == "NYT Title"
+    assert article.url == "https://nytimes.com/a"
+    assert article.source_name == "The New York Times"
+    assert article.description == "Summary"
+    assert article.author == "Jane Doe"
+    assert article.section == "Business"
+    assert article.provider == "nyt"
+    assert article.published_at is not None
+
+
+@pytest.mark.asyncio
+async def test_nyt_empty_byline_becomes_none(monkeypatch):
+    async def fake_get(self, url, **kwargs):
+        return make_response(200, {
+            "response": {
+                "docs": [{
+                    "web_url": "https://nytimes.com/a",
+                    "headline": {"main": "NYT Title"},
+                    "byline": {"original": ""},
+                    "pub_date": "2024-01-01T12:00:00+0000",
+                }]
+            }
+        })
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    articles = await adapter.search(SearchParams(query="bny"))
+
+    assert articles[0].author is None
+
+
+@pytest.mark.asyncio
+async def test_nyt_search_sends_date_range_and_zero_based_page(monkeypatch):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {"response": {"docs": []}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    params = SearchParams(query="bny", from_date="2024-01-01", to_date="2024-01-31", page=2)
+    await adapter.search(params)
+
+    assert captured["params"]["begin_date"] == "20240101"
+    assert captured["params"]["end_date"] == "20240131"
+    assert captured["params"]["page"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "category, expected_fq",
+    [("business", 'section.name:"Business"'), ("science", 'section.name:"Science"')],
+)
+async def test_nyt_maps_categories_to_section_fq(monkeypatch, category, expected_fq):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {"response": {"docs": []}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    await adapter.search(SearchParams(query="bny", category=category))
+
+    assert captured["params"]["fq"] == expected_fq
+
+
+@pytest.mark.asyncio
+async def test_nyt_unsupported_category_is_dropped_without_fq(monkeypatch):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {"response": {"docs": []}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    await adapter.search(SearchParams(query="bny", category="entertainment"))
+
+    assert "fq" not in captured["params"]
+
+
+@pytest.mark.asyncio
+async def test_nyt_rate_limit_raises_provider_error(monkeypatch):
+    async def fake_get(self, url, **kwargs):
+        return make_response(429)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    with pytest.raises(ProviderError) as exc_info:
+        await adapter.search(SearchParams(query="bny"))
+    assert exc_info.value.provider == "nyt"
+
+
+@pytest.mark.asyncio
+async def test_nyt_unauthorized_raises_provider_error(monkeypatch):
+    async def fake_get(self, url, **kwargs):
+        return make_response(401)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    with pytest.raises(ProviderError) as exc_info:
+        await adapter.search(SearchParams(query="bny"))
+    assert exc_info.value.provider == "nyt"
+
+
+@pytest.mark.asyncio
+async def test_nyt_timeout_raises_provider_error(monkeypatch):
+    async def fake_get(self, url, **kwargs):
+        raise httpx.TimeoutException("timed out")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
+    with pytest.raises(ProviderError):
+        await adapter.search(SearchParams(query="bny"))
+
+
+@pytest.mark.asyncio
+async def test_nyt_malformed_response_raises_provider_error(monkeypatch):
+    async def fake_get(self, url, **kwargs):
+        return make_response(200, {"unexpected": "shape"})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = NYTAdapter()
     with pytest.raises(ProviderError):
         await adapter.search(SearchParams(query="bny"))
