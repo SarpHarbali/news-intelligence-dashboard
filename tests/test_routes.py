@@ -5,6 +5,7 @@ import db
 import main
 from config import settings
 from models import Article, ProviderError, SearchResult
+from nl_search import ParsedQuery
 
 
 @pytest.fixture
@@ -77,6 +78,54 @@ def test_already_bookmarked_article_can_be_removed_from_search_results(client, m
     delete_response = client.post(f"/bookmarks/{bookmark_id}/delete", follow_redirects=False)
     assert delete_response.status_code == 303
     assert db.list_bookmarks() == []
+
+
+def test_smart_search_parse_failure_falls_back_to_keyword_search(client, monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", "test-key")
+
+    async def fake_parse_natural_language(query, today):
+        return None
+
+    async def fake_run_search(params):
+        assert params.query == "find me news from bbc about uk politics"
+        return SearchResult(
+            articles=[
+                Article(title="Hello World", url="https://example.com/a", source_name="Example", provider="newsapi")
+            ],
+            errors=[],
+        )
+
+    monkeypatch.setattr(main, "parse_natural_language", fake_parse_natural_language)
+    monkeypatch.setattr(main, "run_search", fake_run_search)
+
+    response = client.get("/", params={"ask": "find me news from bbc about uk politics"})
+
+    assert response.status_code == 200
+    assert "Hello World" in response.text
+    assert "run as a plain keyword search" in response.text
+
+
+def test_smart_search_runs_the_parsed_filters(client, monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", "test-key")
+    searched = []
+
+    async def fake_parse_natural_language(query, today):
+        return ParsedQuery(query="uk politics", source="BBC")
+
+    async def fake_run_search(params):
+        searched.append(params)
+        return SearchResult(articles=[], errors=[])
+
+    monkeypatch.setattr(main, "parse_natural_language", fake_parse_natural_language)
+    monkeypatch.setattr(main, "run_search", fake_run_search)
+
+    response = client.get("/", params={"ask": "find me news from bbc about uk politics"})
+
+    assert response.status_code == 200
+    assert searched[0].query == "uk politics"
+    assert searched[0].source == "BBC"
+    assert 'name="source" class="form-control" value="BBC"' in response.text
+    assert db.get_recent_searches()[0]["query"] == "uk politics"
 
 
 def test_bookmark_add_list_and_delete(client):

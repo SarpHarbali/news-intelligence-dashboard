@@ -7,7 +7,9 @@ from fastapi.templating import Jinja2Templates
 
 import db
 from adapters.newsapi import NewsAPIAdapter
+from config import settings
 from models import NEWSAPI_CATEGORIES, PROVIDER_NAMES, SearchParams
+from nl_search import parse_natural_language, to_search_params
 from search import run_search
 
 
@@ -42,59 +44,84 @@ async def index(
     source: str = "",
     category: str = "",
     page: int = 1,
+    ask: str | None = None,
 ):
     page = max(page, 1)
     context = {
         "categories": NEWSAPI_CATEGORIES,
+        "ask": ask or "",
         "form": {"q": q or "", "from_date": from_date, "to_date": to_date, "source": source, "category": category},
         "articles": None,
         "errors": [],
         "validation_error": None,
         "newsapi_date_warning": None,
         "newsapi_cap_warning": None,
+        "smart_notice": None,
+        "smart_search_available": bool(settings.openai_api_key),
         "page": page,
         "has_more": False,
         "recent_searches": db.get_recent_searches(limit=10),
         "bookmarked_urls": db.get_bookmarked_urls(),
     }
 
-    if q is not None:
-        query = q.strip()
+    if q is not None or ask is not None:
+        query = (ask if ask is not None else q).strip()
         if not query:
             context["validation_error"] = "Please enter a search term."
-        elif from_date and to_date and from_date > to_date:
-            context["validation_error"] = "Start date must be before end date."
         else:
-            params = SearchParams(
-                query=query,
-                from_date=from_date or None,
-                to_date=to_date or None,
-                source=source or None,
-                category=category or None,
-                page=page,
-            )
+            params = None
+            if ask is not None:
+                context["form"]["q"] = query
+                if settings.openai_api_key:
+                    today = datetime.now(timezone.utc).date()
+                    parsed = await parse_natural_language(query, today)
+                    if parsed is not None:
+                        params = to_search_params(parsed, page)
+                        context["form"].update(
+                            q=parsed.query,
+                            from_date=parsed.from_date or "",
+                            to_date=parsed.to_date or "",
+                            source=parsed.source or "",
+                        )
+                    else:
+                        context["smart_notice"] = (
+                            "Couldn't understand that as a smart search, so it was run as a plain keyword search."
+                        )
 
-            if params.from_date and not params.category:
-                history_limit_days = NewsAPIAdapter.history_limit_days
-                cutoff = (datetime.now(timezone.utc) - timedelta(days=history_limit_days)).date().isoformat()
-                if params.from_date < cutoff:
-                    context["newsapi_date_warning"] = (
-                        f"NewsAPI's plan only covers the last {history_limit_days} days, so results "
-                        f"before {cutoff} will only include Guardian articles."
-                    )
-
-            if params.page * params.page_size > NewsAPIAdapter.max_results:
-                context["newsapi_cap_warning"] = (
-                    f"NewsAPI's plan caps total results at {NewsAPIAdapter.max_results} articles per search, "
-                    "so further pages will only include Guardian articles."
+            if params is None and from_date and to_date and from_date > to_date:
+                context["validation_error"] = "Start date must be before end date."
+            elif params is None:
+                params = SearchParams(
+                    query=query,
+                    from_date=from_date or None,
+                    to_date=to_date or None,
+                    source=source or None,
+                    category=category or None,
+                    page=page,
                 )
 
-            result = await run_search(params)
-            context["articles"] = result.articles
-            context["errors"] = result.errors
-            context["has_more"] = result.has_more
-            db.save_recent_search(params.query, params.from_date, params.to_date, params.source, params.category)
-            context["recent_searches"] = db.get_recent_searches(limit=10)
+            if params is not None and not context["validation_error"]:
+                if params.from_date and not params.category:
+                    history_limit_days = NewsAPIAdapter.history_limit_days
+                    cutoff = (datetime.now(timezone.utc) - timedelta(days=history_limit_days)).date().isoformat()
+                    if params.from_date < cutoff:
+                        context["newsapi_date_warning"] = (
+                            f"NewsAPI's plan only covers the last {history_limit_days} days, so results "
+                            f"before {cutoff} will only include Guardian articles."
+                        )
+
+                if params.page * params.page_size > NewsAPIAdapter.max_results:
+                    context["newsapi_cap_warning"] = (
+                        f"NewsAPI's plan caps total results at {NewsAPIAdapter.max_results} articles per search, "
+                        "so further pages will only include Guardian articles."
+                    )
+
+                result = await run_search(params)
+                context["articles"] = result.articles
+                context["errors"] = result.errors
+                context["has_more"] = result.has_more
+                db.save_recent_search(params.query, params.from_date, params.to_date, params.source, params.category)
+                context["recent_searches"] = db.get_recent_searches(limit=10)
 
     return templates.TemplateResponse(request, "index.html", context)
 

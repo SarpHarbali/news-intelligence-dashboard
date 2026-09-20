@@ -9,6 +9,17 @@
     {% endfor %}
 </div>
 {% endif %}
+{% if smart_search_available %}
+<form method="get" action="/" class="mb-3">
+    <label class="form-label">Smart search</label>
+    <div class="input-group">
+        <input type="text" name="ask" class="form-control" value="{{ ask }}"
+               placeholder="e.g. UK bank news from the Guardian last week">
+        <button type="submit" class="btn btn-outline-primary">Parse &amp; search</button>
+    </div>
+    <div class="form-text">Describe what you want in plain English and it fills in the filters below.</div>
+</form>
+{% endif %}
 <form method="get" action="/" class="row g-3 mb-4">
     <div class="col-md-4">
         <label class="form-label">Keyword</label>
@@ -60,6 +71,10 @@
 
 {% if newsapi_cap_warning %}
 <div class="alert alert-info py-2">{{ newsapi_cap_warning }}</div>
+{% endif %}
+
+{% if smart_notice %}
+<div class="alert alert-info py-2">{{ smart_notice }}</div>
 {% endif %}
 
 {% if articles is not none %}

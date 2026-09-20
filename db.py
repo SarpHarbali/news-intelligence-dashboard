@@ -49,8 +49,11 @@ def save_recent_search(query, from_date, to_date, source, category):
         last = conn.execute(
             "SELECT query, from_date, to_date, source, category FROM recent_searches ORDER BY id DESC LIMIT 1"
         ).fetchone()
-        if last and tuple(last) == (query, from_date, to_date, source, category):
-            return
+        if last:
+            last_key = (last["query"].lower(), last["from_date"], last["to_date"], (last["source"] or "").lower(), last["category"])
+            new_key = (query.lower(), from_date, to_date, (source or "").lower(), category)
+            if last_key == new_key:
+                return
         conn.execute(
             "INSERT INTO recent_searches (query, from_date, to_date, source, category) VALUES (?, ?, ?, ?, ?)",
             (query, from_date, to_date, source, category),

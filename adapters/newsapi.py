@@ -22,7 +22,7 @@ class NewsAPIAdapter(NewsProvider):
             query = {"q": params.query, "category": params.category, "pageSize": params.page_size, "page": params.page}
         else:
             url = f"{BASE_URL}/everything"
-            query = {"q": params.query, "pageSize": params.page_size, "page": params.page}
+            query = {"q": params.query, "pageSize": params.page_size, "page": params.page, "language": "en"}
             cutoff = (datetime.now(timezone.utc) - timedelta(days=self.history_limit_days)).date().isoformat()
             if params.to_date and params.to_date < cutoff:
                 return []

@@ -176,6 +176,26 @@ async def test_guardian_search_normalizes_articles(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "category, expected_section",
+    [("sports", "sport"), ("entertainment", "culture|film|music|stage"), ("business", "business")],
+)
+async def test_guardian_remaps_categories_to_matching_sections(monkeypatch, category, expected_section):
+    captured = {}
+
+    async def fake_get(self, url, **kwargs):
+        captured["params"] = kwargs.get("params")
+        return make_response(200, {"response": {"results": []}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    adapter = GuardianAdapter()
+    await adapter.search(SearchParams(query="bny", category=category))
+
+    assert captured["params"]["section"] == expected_section
+
+
+@pytest.mark.asyncio
 async def test_guardian_rate_limit_raises_provider_error(monkeypatch):
     async def fake_get(self, url, **kwargs):
         return make_response(429)
