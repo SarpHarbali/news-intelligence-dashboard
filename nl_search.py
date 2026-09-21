@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from config import settings
 from models import SearchParams
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-5.6-luna"
+REASONING_EFFORT = "low"
 TIMEOUT_SECONDS = 8.0
 
 
@@ -64,6 +65,7 @@ async def parse_natural_language(raw_query: str, today: date) -> ParsedQuery | N
     try:
         response = await client.responses.parse(
             model=MODEL,
+            reasoning={"effort": REASONING_EFFORT},
             input=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": raw_query},

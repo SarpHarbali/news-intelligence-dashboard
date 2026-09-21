@@ -28,6 +28,7 @@ async def run_search(params: SearchParams) -> SearchResult:
     results = await asyncio.gather(*tasks)
 
     articles = []
+    prior_page_articles = []
     errors = []
     seen_urls = set()
     last_page_counts = {}
@@ -45,13 +46,23 @@ async def run_search(params: SearchParams) -> SearchResult:
                     continue
                 seen_urls.add(article.url)
                 articles.append(article)
+                if page < params.page:
+                    prior_page_articles.append(article)
 
     if params.source:
         needle = params.source.lower()
-        articles = [a for a in articles if needle in a.source_name.lower()]
+
+        def matches_source(article):
+            return needle in article.source_name.lower() or needle == article.provider
+
+        articles = [a for a in articles if matches_source(a)]
+        prior_page_articles = [a for a in prior_page_articles if matches_source(a)]
 
     articles.sort(key=lambda a: a.published_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 
     has_more = any(count >= params.page_size for count in last_page_counts.values())
+    no_new_results = params.page > 1 and len(articles) == len(prior_page_articles)
+    if no_new_results:
+        has_more = False
 
-    return SearchResult(articles=articles, errors=errors, has_more=has_more)
+    return SearchResult(articles=articles, errors=errors, has_more=has_more, no_new_results=no_new_results)

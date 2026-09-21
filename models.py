@@ -18,6 +18,7 @@ class Article(BaseModel):
     image_url: str | None = None
     section: str | None = None
     provider: Literal["newsapi", "guardian", "nyt"]
+    sentiment: Literal["positive", "neutral", "negative"] | None = None
 
 
 class SearchParams(BaseModel):
@@ -26,7 +27,7 @@ class SearchParams(BaseModel):
     to_date: str | None = None
     source: str | None = None
     category: str | None = None
-    page_size: int = 50
+    page_size: int = 10
     page: int = 1
 
 
@@ -42,3 +43,4 @@ class SearchResult:
     articles: list[Article]
     errors: list[ProviderError]
     has_more: bool = False
+    no_new_results: bool = False

@@ -11,6 +11,7 @@ from config import settings
 from models import NEWSAPI_CATEGORIES, PROVIDER_NAMES, SearchParams
 from nl_search import parse_natural_language, to_search_params
 from search import run_search
+from sentiment import tag_articles
 
 
 @asynccontextmanager
@@ -31,8 +32,11 @@ def _format_date(value):
     return value.strftime("%Y-%m-%d")
 
 
+SENTIMENT_BADGE_CLASSES = {"positive": "bg-success", "neutral": "bg-secondary", "negative": "bg-danger"}
+
 templates.env.filters["date"] = _format_date
 templates.env.filters["provider_name"] = lambda value: PROVIDER_NAMES.get(value, value)
+templates.env.filters["sentiment_badge"] = lambda value: SENTIMENT_BADGE_CLASSES.get(value, "bg-secondary")
 
 
 @app.get("/")
@@ -58,8 +62,10 @@ async def index(
         "newsapi_cap_warning": None,
         "smart_notice": None,
         "smart_search_available": bool(settings.openai_api_key),
+        "sentiment_notice": None,
         "page": page,
         "has_more": False,
+        "no_new_results": False,
         "recent_searches": db.get_recent_searches(limit=10),
         "bookmarked_urls": db.get_bookmarked_urls(),
     }
@@ -117,9 +123,15 @@ async def index(
                     )
 
                 result = await run_search(params)
+                if await tag_articles(result.articles):
+                    context["sentiment_notice"] = (
+                        "Sentiment tagging is temporarily unavailable, so results are shown without "
+                        "sentiment badges."
+                    )
                 context["articles"] = result.articles
                 context["errors"] = result.errors
                 context["has_more"] = result.has_more
+                context["no_new_results"] = result.no_new_results
                 db.save_recent_search(params.query, params.from_date, params.to_date, params.source, params.category)
                 context["recent_searches"] = db.get_recent_searches(limit=10)
 

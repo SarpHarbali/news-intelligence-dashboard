@@ -15,6 +15,9 @@
                     {%- if article.author %} &middot; {{ article.author }}{% endif -%}
                     {%- if article.published_at %} &middot; {{ article.published_at | date }}{% endif %}
                     <span class="badge bg-secondary">{{ article.provider | provider_name }}</span>
+                    {% if article.sentiment %}
+                    <span class="badge {{ article.sentiment | sentiment_badge }}">{{ article.sentiment | capitalize }}</span>
+                    {% endif %}
                 </h6>
                 {% if article.description %}<p class="card-text">{{ article.description }}</p>{% endif %}
                 {% if article.id is defined and article.id %}

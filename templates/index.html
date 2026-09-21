@@ -48,6 +48,7 @@
     </div>
     <div class="col-12">
         <button type="submit" class="btn btn-primary">Search</button>
+        <a href="/" class="btn btn-outline-secondary">Clear</a>
     </div>
 </form>
 
@@ -77,6 +78,10 @@
 <div class="alert alert-info py-2">{{ smart_notice }}</div>
 {% endif %}
 
+{% if sentiment_notice %}
+<div class="alert alert-info py-2">{{ sentiment_notice }}</div>
+{% endif %}
+
 {% if articles is not none %}
     {% if articles|length == 0 %}
         {% if errors|length > 0 %}
@@ -93,6 +98,8 @@
             <a class="btn btn-outline-primary"
                href="/?q={{ form.q | urlencode }}&from_date={{ form.from_date }}&to_date={{ form.to_date }}&source={{ form.source | urlencode }}&category={{ form.category }}&page={{ page + 1 }}">Load more</a>
         </div>
+        {% elif no_new_results %}
+        <p class="text-muted text-center mb-4">No more articles found.</p>
         {% endif %}
     {% endif %}
 {% endif %}

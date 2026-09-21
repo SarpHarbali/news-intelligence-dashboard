@@ -42,6 +42,13 @@ def init_db():
                 bookmarked_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sentiment_cache (
+                url TEXT PRIMARY KEY,
+                sentiment TEXT NOT NULL,
+                tagged_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
 
 
 def save_recent_search(query, from_date, to_date, source, category):
@@ -91,3 +98,24 @@ def get_bookmarked_urls():
     with _connect() as conn:
         rows = conn.execute("SELECT id, url FROM bookmarks").fetchall()
         return {row["url"]: row["id"] for row in rows}
+
+
+def get_cached_sentiments(urls):
+    if not urls:
+        return {}
+    with _connect() as conn:
+        placeholders = ",".join("?" * len(urls))
+        rows = conn.execute(
+            f"SELECT url, sentiment FROM sentiment_cache WHERE url IN ({placeholders})", urls
+        ).fetchall()
+        return {row["url"]: row["sentiment"] for row in rows}
+
+
+def cache_sentiments(mapping):
+    if not mapping:
+        return
+    with _connect() as conn:
+        conn.executemany(
+            "INSERT OR REPLACE INTO sentiment_cache (url, sentiment) VALUES (?, ?)",
+            list(mapping.items()),
+        )

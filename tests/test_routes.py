@@ -49,6 +49,26 @@ def test_no_results_shows_empty_state(client, monkeypatch):
     assert "No articles found for your search criteria." in response.text
 
 
+def test_load_more_with_no_new_articles_shows_message(client, monkeypatch):
+    async def fake_run_search(params):
+        return SearchResult(
+            articles=[
+                Article(title="Hello World", url="https://example.com/a", source_name="Example", provider="newsapi")
+            ],
+            errors=[],
+            has_more=False,
+            no_new_results=True,
+        )
+
+    monkeypatch.setattr(main, "run_search", fake_run_search)
+
+    response = client.get("/", params={"q": "bny", "page": 2})
+
+    assert response.status_code == 200
+    assert "No more articles found." in response.text
+    assert "Load more" not in response.text
+
+
 def test_empty_query_shows_validation_error(client):
     response = client.get("/", params={"q": "   "})
 
@@ -142,6 +162,28 @@ def test_smart_search_runs_the_parsed_filters(client, monkeypatch):
     assert searched[0].source == "BBC"
     assert 'name="source" class="form-control" value="BBC"' in response.text
     assert db.get_recent_searches()[0]["query"] == "uk politics"
+
+
+def test_sentiment_failure_still_returns_normal_search_results(client, monkeypatch):
+    async def fake_run_search(params):
+        return SearchResult(
+            articles=[
+                Article(title="Hello World", url="https://example.com/a", source_name="Example", provider="newsapi")
+            ],
+            errors=[],
+        )
+
+    async def fake_tag_articles(articles):
+        return True
+
+    monkeypatch.setattr(main, "run_search", fake_run_search)
+    monkeypatch.setattr(main, "tag_articles", fake_tag_articles)
+
+    response = client.get("/", params={"q": "bny"})
+
+    assert response.status_code == 200
+    assert "Hello World" in response.text
+    assert "Sentiment tagging is temporarily unavailable" in response.text
 
 
 def test_bookmark_add_list_and_delete(client):

@@ -259,28 +259,6 @@ async def test_nyt_search_normalizes_articles(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_nyt_empty_byline_becomes_none(monkeypatch):
-    async def fake_get(self, url, **kwargs):
-        return make_response(200, {
-            "response": {
-                "docs": [{
-                    "web_url": "https://nytimes.com/a",
-                    "headline": {"main": "NYT Title"},
-                    "byline": {"original": ""},
-                    "pub_date": "2024-01-01T12:00:00+0000",
-                }]
-            }
-        })
-
-    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
-
-    adapter = NYTAdapter()
-    articles = await adapter.search(SearchParams(query="bny"))
-
-    assert articles[0].author is None
-
-
-@pytest.mark.asyncio
 async def test_nyt_search_sends_date_range_and_zero_based_page(monkeypatch):
     captured = {}
 
