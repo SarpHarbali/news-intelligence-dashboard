@@ -108,3 +108,68 @@ async def test_loading_next_page_with_no_new_articles_reports_no_new_results(mon
     assert len(result.articles) == 1
     assert result.no_new_results is True
     assert result.has_more is False
+
+
+@pytest.mark.asyncio
+async def test_loading_next_page_reuses_cached_first_page(monkeypatch):
+    class PageProvider:
+        name = "newsapi"
+
+        def __init__(self):
+            self.requested_pages = []
+
+        async def search(self, params):
+            self.requested_pages.append(params.page)
+            return [make_article(f"Page {params.page}", self.name)]
+
+    provider = PageProvider()
+    monkeypatch.setattr(search, "PROVIDERS", [provider])
+
+    first_result = await search.run_search(SearchParams(query="bny", page=1))
+    second_result = await search.run_search(SearchParams(query="bny", page=2))
+
+    assert [article.title for article in first_result.articles] == ["Page 1"]
+    assert {article.title for article in second_result.articles} == {"Page 1", "Page 2"}
+    assert provider.requested_pages == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_cache_entries_expire(monkeypatch):
+    provider = FakeProvider("newsapi", articles=[make_article("A", "newsapi")])
+    requested_pages = []
+    current_time = 100.0
+
+    async def tracked_search(params):
+        requested_pages.append(params.page)
+        return provider._articles
+
+    provider.search = tracked_search
+    monkeypatch.setattr(search, "PROVIDERS", [provider])
+    monkeypatch.setattr(search, "monotonic", lambda: current_time)
+
+    await search.run_search(SearchParams(query="bny"))
+    current_time += search.CACHE_TTL_SECONDS
+    await search.run_search(SearchParams(query="bny"))
+
+    assert requested_pages == [1, 1]
+
+
+@pytest.mark.asyncio
+async def test_cache_evicts_least_recently_used_entry(monkeypatch):
+    provider = FakeProvider("newsapi", articles=[make_article("A", "newsapi")])
+    requested_queries = []
+
+    async def tracked_search(params):
+        requested_queries.append(params.query)
+        return provider._articles
+
+    provider.search = tracked_search
+    monkeypatch.setattr(search, "PROVIDERS", [provider])
+    monkeypatch.setattr(search, "CACHE_MAX_ENTRIES", 2)
+
+    await search.run_search(SearchParams(query="one"))
+    await search.run_search(SearchParams(query="two"))
+    await search.run_search(SearchParams(query="three"))
+    await search.run_search(SearchParams(query="one"))
+
+    assert requested_queries == ["one", "two", "three", "one"]

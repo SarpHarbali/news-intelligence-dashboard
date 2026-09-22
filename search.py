@@ -1,5 +1,7 @@
 import asyncio
+from collections import OrderedDict
 from datetime import datetime, timezone
+from time import monotonic
 
 from adapters.guardian import GuardianAdapter
 from adapters.newsapi import NewsAPIAdapter
@@ -7,19 +9,64 @@ from adapters.nyt import NYTAdapter
 from models import ProviderError, SearchParams, SearchResult
 
 PROVIDERS = [NewsAPIAdapter(), GuardianAdapter(), NYTAdapter()]
+CACHE_TTL_SECONDS = 600
+CACHE_MAX_ENTRIES = 256
+
+_PAGE_CACHE = OrderedDict()
+
+
+def _cache_key(provider, params: SearchParams, page: int):
+    return (
+        provider.name,
+        params.query,
+        params.from_date,
+        params.to_date,
+        params.category,
+        params.page_size,
+        page,
+    )
+
+
+def _get_cached_page(key):
+    cached = _PAGE_CACHE.get(key)
+    if cached is None:
+        return None
+
+    cached_at, articles = cached
+    if monotonic() - cached_at >= CACHE_TTL_SECONDS:
+        del _PAGE_CACHE[key]
+        return None
+
+    _PAGE_CACHE.move_to_end(key)
+    return [article.model_copy(deep=True) for article in articles]
+
+
+def _cache_page(key, articles):
+    _PAGE_CACHE[key] = (monotonic(), [article.model_copy(deep=True) for article in articles])
+    _PAGE_CACHE.move_to_end(key)
+    while len(_PAGE_CACHE) > CACHE_MAX_ENTRIES:
+        _PAGE_CACHE.popitem(last=False)
 
 
 async def _fetch_page(provider, params: SearchParams, page: int):
+    key = _cache_key(provider, params, page)
+    cached = _get_cached_page(key)
+    if cached is not None:
+        return cached
+
     max_results = getattr(provider, "max_results", None)
     if max_results and page * params.page_size > max_results:
         return []
     page_params = params.model_copy(update={"page": page})
     try:
-        return await provider.search(page_params)
+        articles = await provider.search(page_params)
     except ProviderError as exc:
         return exc
     except Exception as exc:
         return ProviderError(provider.name, str(exc))
+
+    _cache_page(key, articles)
+    return articles
 
 
 async def run_search(params: SearchParams) -> SearchResult:
