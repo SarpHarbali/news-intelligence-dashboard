@@ -53,7 +53,7 @@ class NYTAdapter(NewsProvider):
 
         try:
             data = response.json()["response"]
-            return [self._to_article(item) for item in data["docs"]]
+            return [self._to_article(item) for item in data["docs"] or []]
         except (KeyError, TypeError, ValueError):
             raise ProviderError(self.name, "unexpected response format")
 

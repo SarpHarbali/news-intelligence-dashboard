@@ -113,7 +113,7 @@ async def index(
                     if params.from_date < cutoff:
                         context["newsapi_date_warning"] = (
                             f"NewsAPI's plan only covers the last {history_limit_days} days, so results "
-                            f"before {cutoff} will only include Guardian articles."
+                            f"before {cutoff} will only include Guardian and NYT articles."
                         )
 
                 if params.page * params.page_size > NewsAPIAdapter.max_results:
